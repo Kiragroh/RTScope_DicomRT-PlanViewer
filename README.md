@@ -2,7 +2,7 @@
 
 Fast desktop viewer and research QA workbench for radiotherapy DICOM plans.
 
-![PlanEval RT Viewer screenshot with CT privacy blur](docs/guiScreenshot.png)
+![RTScope PlanEval Viewer anonymized workflow](docs/anonGif.gif)
 
 PlanEval RT Viewer loads local RT DICOM folders and combines plan inspection,
 DVH review, constraint checking, target metrics and MLC/BEV inspection in one
