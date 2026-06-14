@@ -91,6 +91,14 @@ The app uses `POST /api/refdb/lookup/batch` and client-side fraction filtering
 by default. Matching is combined from live Hub data, the local cache and bundled
 offline examples.
 
+## Acknowledgements
+
+This project is built with respect for the open radiotherapy tooling ecosystem.
+Special thanks to [dicompyler-core](https://github.com/dicompyler/dicompyler-core),
+which has been a reliable companion for DICOM-RT work for many years, and to
+[PyRTEva-Engine](https://github.com/PanMar86/PyRTEva-Engine/tree/main), whose
+viewer/evaluation direction is highly inspiring.
+
 ## Data Protection
 
 Do not commit patient data, DICOM files, screenshots with identifiable anatomy,
