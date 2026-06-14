@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "description": "Synthetic offline RefDB example catalog for demos and tests. Values are not clinical standards.",
+  "structures": [
+    {
+      "canonical_name": "SpinalCord",
+      "reference_name": "SpinalCord",
+      "color": "#facc15",
+      "aliases": ["SpinalCord", "Cord", "Myelon", "Spinal_Cord"],
+      "table_ids": [101, 103, 105, 108]
+    },
+    {
+      "canonical_name": "Brainstem",
+      "reference_name": "Brainstem",
+      "color": "#38bdf8",
+      "aliases": ["Brainstem", "Brain_Stem", "Hirnstamm"],
+      "table_ids": [101, 103, 105, 108]
+    },
+    {
+      "canonical_name": "OpticChiasm",
+      "reference_name": "OpticChiasm",
+      "color": "#a78bfa",
+      "aliases": ["Chiasm", "OpticChiasm", "Chiasma"],
+      "table_ids": [101, 103, 105]
+    },
+    {
+      "canonical_name": "Lung_Total",
+      "reference_name": "Lung_Total",
+      "color": "#22c55e",
+      "aliases": ["Lung_Total", "Lung", "Lungs", "Lunge"],
+      "table_ids": [101, 103, 105, 108]
+    },
+    {
+      "canonical_name": "Heart",
+      "reference_name": "Heart",
+      "color": "#ef4444",
+      "aliases": ["Heart", "Herz"],
+      "table_ids": [103, 105, 108]
+    },
+    {
+      "canonical_name": "Esophagus",
+      "reference_name": "Esophagus",
+      "color": "#f97316",
+      "aliases": ["Esophagus", "Oesophagus", "Speiseroehre"],
+      "table_ids": [103, 105, 108]
+    }
+  ],
+  "constraint_tables": [
+    {
+      "id": 101,
+      "name": "STX1:Stereotaxie_1Fx",
+      "site": "Synthetic example",
+      "regime": "SRS/SBRT",
+      "fx_min": 1,
+      "fx_max": 1,
+      "constraints": [
+        {
+          "oar_raw": "SpinalCord",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 10.0,
+          "limit_maximal": 12.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Brainstem",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 12.5,
+          "limit_maximal": 15.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Lung_Total",
+          "metric": "V7Gy",
+          "unit": "%",
+          "comparator": "<=",
+          "limit_optimal": 20.0,
+          "limit_maximal": 30.0,
+          "priority": "demo",
+          "source": "synthetic"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "name": "STX3:Stereotaxie_3Fx",
+      "site": "Synthetic example",
+      "regime": "SRS/SBRT",
+      "fx_min": 3,
+      "fx_max": 3,
+      "constraints": [
+        {
+          "oar_raw": "SpinalCord",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 18.0,
+          "limit_maximal": 21.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Brainstem",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 21.0,
+          "limit_maximal": 23.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Heart",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 24.0,
+          "limit_maximal": 30.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Esophagus",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 21.0,
+          "limit_maximal": 27.0,
+          "priority": "demo",
+          "source": "synthetic"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "name": "STX5:Stereotaxie_5Fx",
+      "site": "Synthetic example",
+      "regime": "SRS/SBRT",
+      "fx_min": 5,
+      "fx_max": 5,
+      "constraints": [
+        {
+          "oar_raw": "SpinalCord",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 25.0,
+          "limit_maximal": 30.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Brainstem",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 28.0,
+          "limit_maximal": 31.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Lung_Total",
+          "metric": "V20Gy",
+          "unit": "%",
+          "comparator": "<=",
+          "limit_optimal": 10.0,
+          "limit_maximal": 15.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Heart",
+          "metric": "Dmean",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 8.0,
+          "limit_maximal": 12.0,
+          "priority": "demo",
+          "source": "synthetic"
+        }
+      ]
+    },
+    {
+      "id": 108,
+      "name": "STX8:Stereotaxie_8Fx",
+      "site": "Synthetic example",
+      "regime": "SRS/SBRT",
+      "fx_min": 8,
+      "fx_max": 8,
+      "constraints": [
+        {
+          "oar_raw": "SpinalCord",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 32.0,
+          "limit_maximal": 36.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Lung_Total",
+          "metric": "V20Gy",
+          "unit": "%",
+          "comparator": "<=",
+          "limit_optimal": 12.0,
+          "limit_maximal": 18.0,
+          "priority": "demo",
+          "source": "synthetic"
+        },
+        {
+          "oar_raw": "Esophagus",
+          "metric": "D0.03cc",
+          "unit": "Gy",
+          "comparator": "<=",
+          "limit_optimal": 32.0,
+          "limit_maximal": 38.0,
+          "priority": "demo",
+          "source": "synthetic"
+        }
+      ]
+    }
+  ],
+  "warning": "Synthetic example data only. Do not use for clinical decisions."
+}
