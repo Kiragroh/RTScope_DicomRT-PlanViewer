@@ -1,8 +1,12 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+build/
+dist/
+release/
 cache/
 Import/
 *SFConflict*
 *.log
+*.zip
 github_reference/PyRTEva-Engine/

@@ -50,7 +50,11 @@ they are not institutional standards and must not be used for clinical review.
 
 ## Installation
 
-Use Python 3.13 or a recent Python 3.11+ environment on Windows.
+For normal Windows use, download the latest compiled ZIP from the
+[GitHub Releases page](https://github.com/Kiragroh/RTScope_DicomRT-PlanViewer/releases/latest).
+Extract it and run `RTScopePlanEvalViewer.exe`.
+
+For source use, use Python 3.13 or a recent Python 3.11+ environment on Windows.
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -63,6 +67,8 @@ For local development:
 python -m pytest -q
 python -m compileall -q planeval_viewer app.py
 ```
+
+For a guided first run, see [Getting Started](docs/getting_started.md).
 
 ## DICOM Folder Layout
 

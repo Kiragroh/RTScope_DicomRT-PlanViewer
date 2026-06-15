@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-from matplotlib.path import Path as MplPath
+from skimage.draw import polygon as draw_polygon
 
 from planeval_viewer.dicom_io.models import CtVolume, DoseVolume, RoiGeometry
 
@@ -59,11 +59,8 @@ def _fill_polygon(slice_mask: np.ndarray, x: np.ndarray, y: np.ndarray) -> None:
     if xmax < xmin or ymax < ymin:
         return
 
-    yy, xx = np.mgrid[ymin : ymax + 1, xmin : xmax + 1]
-    points = np.column_stack((xx.ravel(), yy.ravel()))
-    polygon = MplPath(np.column_stack((x, y)))
-    inside = polygon.contains_points(points, radius=0.5).reshape(yy.shape)
-    slice_mask[ymin : ymax + 1, xmin : xmax + 1] |= inside
+    rr, cc = draw_polygon(y, x, shape=slice_mask.shape)
+    slice_mask[rr, cc] = True
 
 
 def _slice_tolerance(z_positions: list[float]) -> float:
