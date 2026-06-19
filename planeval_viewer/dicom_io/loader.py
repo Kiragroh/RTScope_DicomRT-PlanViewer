@@ -39,16 +39,29 @@ def load_plan_variants(folder: str | Path) -> list[PlanDataset]:
 
     common_warnings: list[str] = []
     ct_paths = by_modality.get("CT", [])
-    ct = _load_ct(ct_paths, common_warnings)
+    ct_cache: dict[tuple[Path, ...], CtVolume | None] = {}
     plan_paths = by_modality.get("RTPLAN", [])
     if not plan_paths:
+        warnings = list(common_warnings)
+        rtstruct_paths = by_modality.get("RTSTRUCT", [])
+        dose_paths = by_modality.get("RTDOSE", [])
+        selected_ct_paths = _select_ct_paths(
+            ct_paths,
+            datasets_by_path,
+            rtstruct_paths=rtstruct_paths,
+            dose_paths=dose_paths,
+            plan_paths=[],
+            anchor_path=None,
+            warnings=warnings,
+        )
+        ct = _load_ct_cached(selected_ct_paths, warnings, ct_cache)
         return [
             _build_plan_dataset(
                 ct=ct,
-                dose_paths=by_modality.get("RTDOSE", []),
-                rtstruct_paths=by_modality.get("RTSTRUCT", []),
+                dose_paths=dose_paths,
+                rtstruct_paths=rtstruct_paths,
                 plan_paths=[],
-                common_warnings=common_warnings,
+                common_warnings=warnings,
                 plan_label="Image / structure set",
             )
         ]
@@ -57,22 +70,35 @@ def load_plan_variants(folder: str | Path) -> list[PlanDataset]:
     for plan_path in sorted(plan_paths, key=lambda item: item.name.lower()):
         plan_dataset = datasets_by_path.get(plan_path)
         plan_uid = str(getattr(plan_dataset, "SOPInstanceUID", "") or "")
-        dose_paths = _paths_referencing_sop(
+        dose_paths = _paths_associated_with_plan(
             by_modality.get("RTDOSE", []),
             datasets_by_path,
             plan_uid,
+            plan_path,
         )
-        rtstruct_paths = _paths_referencing_sop(
+        rtstruct_paths = _paths_associated_with_plan(
             by_modality.get("RTSTRUCT", []),
             datasets_by_path,
             plan_uid,
+            plan_path,
         )
+        warnings = list(common_warnings)
+        selected_ct_paths = _select_ct_paths(
+            ct_paths,
+            datasets_by_path,
+            rtstruct_paths=rtstruct_paths,
+            dose_paths=dose_paths,
+            plan_paths=[plan_path],
+            anchor_path=plan_path,
+            warnings=warnings,
+        )
+        ct = _load_ct_cached(selected_ct_paths, warnings, ct_cache)
         plan = _build_plan_dataset(
             ct=ct,
             dose_paths=dose_paths,
             rtstruct_paths=rtstruct_paths,
             plan_paths=[plan_path],
-            common_warnings=common_warnings,
+            common_warnings=warnings,
             plan_label=plan_path.stem,
         )
         plan.plan_info.setdefault("source_plan_path", str(plan_path))
@@ -113,19 +139,181 @@ def _build_plan_dataset(
     )
 
 
-def _paths_referencing_sop(
+def _paths_associated_with_plan(
     paths: list[Path],
     datasets_by_path: dict[Path, Dataset],
     sop_uid: str,
+    plan_path: Path,
 ) -> list[Path]:
-    if not sop_uid:
-        return paths
-    matched = [
+    if not paths:
+        return []
+    if sop_uid:
+        matched = [
+            path
+            for path in paths
+            if sop_uid in _referenced_sop_uids(datasets_by_path.get(path))
+        ]
+        if matched:
+            return matched
+    nearby = _paths_near_anchor(paths, plan_path)
+    return nearby or paths
+
+
+def _paths_near_anchor(paths: list[Path], anchor_path: Path) -> list[Path]:
+    anchor_dir = anchor_path.parent
+    nearby = [
         path
         for path in paths
-        if sop_uid in _referenced_sop_uids(datasets_by_path.get(path))
+        if _is_relative_to(path.parent, anchor_dir) or _is_relative_to(anchor_dir, path.parent)
     ]
-    return matched or paths
+    return sorted(nearby, key=lambda item: str(item).lower())
+
+
+def _is_relative_to(path: Path, base: Path) -> bool:
+    try:
+        path.relative_to(base)
+    except ValueError:
+        return False
+    return True
+
+
+def _select_ct_paths(
+    ct_paths: list[Path],
+    datasets_by_path: dict[Path, Dataset],
+    rtstruct_paths: list[Path],
+    dose_paths: list[Path],
+    plan_paths: list[Path],
+    anchor_path: Path | None,
+    warnings: list[str],
+) -> list[Path]:
+    if not ct_paths:
+        return []
+
+    reference_uids: set[str] = set()
+    for path in [*rtstruct_paths, *dose_paths, *plan_paths]:
+        reference_uids.update(_referenced_sop_uids(datasets_by_path.get(path)))
+    if reference_uids:
+        matched = [
+            path
+            for path in ct_paths
+            if _dataset_uid(datasets_by_path.get(path), "SOPInstanceUID") in reference_uids
+        ]
+        if matched:
+            return _single_ct_series_from_matches(
+                matched,
+                ct_paths,
+                datasets_by_path,
+                warnings,
+                "RT object references",
+            )
+
+    reference_frames: set[str] = set()
+    for path in [*rtstruct_paths, *dose_paths, *plan_paths]:
+        reference_frames.update(_frame_of_reference_uids(datasets_by_path.get(path)))
+    if reference_frames:
+        matched = [
+            path
+            for path in ct_paths
+            if _dataset_uid(datasets_by_path.get(path), "FrameOfReferenceUID") in reference_frames
+        ]
+        if matched:
+            return _single_ct_series_from_matches(
+                matched,
+                ct_paths,
+                datasets_by_path,
+                warnings,
+                "FrameOfReferenceUID",
+            )
+
+    if anchor_path is not None:
+        nearby = _paths_near_anchor(ct_paths, anchor_path)
+        if nearby:
+            return _largest_ct_series(nearby, datasets_by_path, warnings, warn_if_multiple=True)
+
+    return _largest_ct_series(ct_paths, datasets_by_path, warnings, warn_if_multiple=True)
+
+
+def _single_ct_series_from_matches(
+    matched_paths: list[Path],
+    all_ct_paths: list[Path],
+    datasets_by_path: dict[Path, Dataset],
+    warnings: list[str],
+    source: str,
+) -> list[Path]:
+    groups = _ct_series_groups(all_ct_paths, datasets_by_path)
+    matched_groups = _ct_series_groups(matched_paths, datasets_by_path)
+    if not matched_groups:
+        return []
+    series_key = max(
+        matched_groups,
+        key=lambda key: (len(matched_groups[key]), len(groups.get(key, [])), key),
+    )
+    if len(matched_groups) > 1:
+        warnings.append(
+            f"Multiple CT series matched {source}; using the series with most referenced slices."
+        )
+    return sorted(groups.get(series_key, matched_groups[series_key]), key=lambda item: str(item).lower())
+
+
+def _largest_ct_series(
+    ct_paths: list[Path],
+    datasets_by_path: dict[Path, Dataset],
+    warnings: list[str],
+    warn_if_multiple: bool,
+) -> list[Path]:
+    groups = _ct_series_groups(ct_paths, datasets_by_path)
+    if not groups:
+        return []
+    series_key = max(groups, key=lambda key: (len(groups[key]), key))
+    if warn_if_multiple and len(groups) > 1:
+        warnings.append("Multiple CT series found; using the largest single CT series.")
+    return sorted(groups[series_key], key=lambda item: str(item).lower())
+
+
+def _ct_series_groups(
+    ct_paths: list[Path],
+    datasets_by_path: dict[Path, Dataset],
+) -> dict[str, list[Path]]:
+    groups: dict[str, list[Path]] = {}
+    for path in ct_paths:
+        dataset = datasets_by_path.get(path)
+        key = _dataset_uid(dataset, "SeriesInstanceUID") or f"path:{path.parent}"
+        groups.setdefault(key, []).append(path)
+    return groups
+
+
+def _dataset_uid(dataset: Dataset | None, keyword: str) -> str:
+    if dataset is None:
+        return ""
+    value = getattr(dataset, keyword, None)
+    return str(value) if value else ""
+
+
+def _frame_of_reference_uids(dataset: Dataset | None) -> set[str]:
+    if dataset is None:
+        return set()
+    uids: set[str] = set()
+    value = getattr(dataset, "FrameOfReferenceUID", None)
+    if value:
+        uids.add(str(value))
+    for element in dataset:
+        if element.VR != "SQ":
+            continue
+        for child in element.value:
+            if isinstance(child, Dataset):
+                uids.update(_frame_of_reference_uids(child))
+    return uids
+
+
+def _load_ct_cached(
+    paths: list[Path],
+    warnings: list[str],
+    cache: dict[tuple[Path, ...], CtVolume | None],
+) -> CtVolume | None:
+    key = tuple(sorted(paths, key=lambda item: str(item).lower()))
+    if key not in cache:
+        cache[key] = _load_ct(list(key), warnings)
+    return cache[key]
 
 
 def _referenced_sop_uids(dataset: Dataset | None) -> set[str]:

@@ -1,9 +1,35 @@
 import numpy as np
 from pydicom.dataset import Dataset
+from pydicom.sequence import Sequence
 
 import planeval_viewer.dicom_io.loader as loader_module
 from planeval_viewer.dicom_io.loader import load_plan_folder, load_plan_variants
 from planeval_viewer.dicom_io.models import CtVolume, PlanDataset, RoiGeometry
+
+
+def _ct_header(sop_uid: str, series_uid: str) -> Dataset:
+    dataset = Dataset()
+    dataset.Modality = "CT"
+    dataset.SOPInstanceUID = sop_uid
+    dataset.SeriesInstanceUID = series_uid
+    dataset.FrameOfReferenceUID = "1.2.826.0.1.3680043.10.54321.9"
+    return dataset
+
+
+def _plan_header(sop_uid: str) -> Dataset:
+    dataset = Dataset()
+    dataset.Modality = "RTPLAN"
+    dataset.SOPInstanceUID = sop_uid
+    return dataset
+
+
+def _rtstruct_header_referencing_ct(ct_sop_uid: str) -> Dataset:
+    dataset = Dataset()
+    dataset.Modality = "RTSTRUCT"
+    contour_image = Dataset()
+    contour_image.ReferencedSOPInstanceUID = ct_sop_uid
+    dataset.ContourImageSequence = Sequence([contour_image])
+    return dataset
 
 
 def test_plan_dataset_exposes_roi_names():
@@ -132,6 +158,94 @@ def test_load_plan_variants_allows_image_structure_dose_without_rtplan(monkeypat
         "dose": [paths["dose"]],
         "struct": [paths["struct"]],
     }
+
+
+def test_load_plan_variants_uses_plan_local_referenced_ct_series(monkeypatch, tmp_path):
+    case_a = tmp_path / "case_a"
+    case_b = tmp_path / "case_b"
+    paths = {
+        "ct_a1": case_a / "ct_a1.dcm",
+        "ct_a2": case_a / "ct_a2.dcm",
+        "struct_a": case_a / "struct_a.dcm",
+        "plan_a": case_a / "plan_a.dcm",
+        "ct_b1": case_b / "ct_b1.dcm",
+        "ct_b2": case_b / "ct_b2.dcm",
+        "struct_b": case_b / "struct_b.dcm",
+        "plan_b": case_b / "plan_b.dcm",
+    }
+    loaded_ct = []
+
+    monkeypatch.setattr(
+        loader_module,
+        "_read_dicom_headers",
+        lambda _folder: [
+            (paths["ct_a1"], _ct_header("1.2.826.0.1.3680043.10.54321.1.1", "1.2.826.0.1.3680043.10.54321.1")),
+            (paths["ct_a2"], _ct_header("1.2.826.0.1.3680043.10.54321.1.2", "1.2.826.0.1.3680043.10.54321.1")),
+            (paths["struct_a"], _rtstruct_header_referencing_ct("1.2.826.0.1.3680043.10.54321.1.1")),
+            (paths["plan_a"], _plan_header("1.2.826.0.1.3680043.10.54321.11")),
+            (paths["ct_b1"], _ct_header("1.2.826.0.1.3680043.10.54321.2.1", "1.2.826.0.1.3680043.10.54321.2")),
+            (paths["ct_b2"], _ct_header("1.2.826.0.1.3680043.10.54321.2.2", "1.2.826.0.1.3680043.10.54321.2")),
+            (paths["struct_b"], _rtstruct_header_referencing_ct("1.2.826.0.1.3680043.10.54321.2.1")),
+            (paths["plan_b"], _plan_header("1.2.826.0.1.3680043.10.54321.12")),
+        ],
+    )
+
+    def record_ct(paths_, _warnings):
+        loaded_ct.append(list(paths_))
+        return None
+
+    monkeypatch.setattr(loader_module, "_load_ct", record_ct)
+    monkeypatch.setattr(loader_module, "_load_dose", lambda _paths, _warnings: None)
+    monkeypatch.setattr(loader_module, "_load_rtstruct", lambda _paths, _warnings: [])
+    monkeypatch.setattr(
+        loader_module,
+        "_load_plan_info",
+        lambda plan_paths, _warnings: {"plan_label": plan_paths[0].stem},
+    )
+    monkeypatch.setattr(loader_module, "_load_beams", lambda _paths, _warnings: [])
+
+    plans = load_plan_variants(tmp_path)
+
+    assert [plan.plan_info["plan_label"] for plan in plans] == ["plan_a", "plan_b"]
+    assert loaded_ct == [
+        [paths["ct_a1"], paths["ct_a2"]],
+        [paths["ct_b1"], paths["ct_b2"]],
+    ]
+
+
+def test_load_plan_variants_uses_largest_single_ct_series_without_references(monkeypatch, tmp_path):
+    paths = {
+        "ct_a1": tmp_path / "ct_a1.dcm",
+        "ct_b1": tmp_path / "ct_b1.dcm",
+        "ct_b2": tmp_path / "ct_b2.dcm",
+    }
+    loaded_ct = []
+
+    monkeypatch.setattr(
+        loader_module,
+        "_read_dicom_headers",
+        lambda _folder: [
+            (paths["ct_a1"], _ct_header("1.2.826.0.1.3680043.10.54321.1.1", "1.2.826.0.1.3680043.10.54321.1")),
+            (paths["ct_b1"], _ct_header("1.2.826.0.1.3680043.10.54321.2.1", "1.2.826.0.1.3680043.10.54321.2")),
+            (paths["ct_b2"], _ct_header("1.2.826.0.1.3680043.10.54321.2.2", "1.2.826.0.1.3680043.10.54321.2")),
+        ],
+    )
+
+    def record_ct(paths_, _warnings):
+        loaded_ct.append(list(paths_))
+        return None
+
+    monkeypatch.setattr(loader_module, "_load_ct", record_ct)
+    monkeypatch.setattr(loader_module, "_load_dose", lambda _paths, _warnings: None)
+    monkeypatch.setattr(loader_module, "_load_rtstruct", lambda _paths, _warnings: [])
+    monkeypatch.setattr(loader_module, "_load_plan_info", lambda _paths, _warnings: {})
+    monkeypatch.setattr(loader_module, "_load_beams", lambda _paths, _warnings: [])
+
+    plans = load_plan_variants(tmp_path)
+
+    assert len(plans) == 1
+    assert loaded_ct == [[paths["ct_b1"], paths["ct_b2"]]]
+    assert "Multiple CT series found; using the largest single CT series." in plans[0].warnings
 
 
 class _FakeDoseDataset:
