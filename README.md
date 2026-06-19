@@ -13,6 +13,7 @@ validated for direct treatment decisions.
 
 - Load DICOM folders with CT, RTSTRUCT, RTDOSE and optional RTPLAN.
 - Handle CT/RTSTRUCT/RTDOSE cases even when no RTPLAN is available.
+- Ask which RTPLAN variant to load when a folder contains multiple plans.
 - Switch between axial, sagittal, coronal and embedded 3D views.
 - Inspect 3D CT body/bone surfaces or volume rendering with dose overlay.
 - Toggle 3D PTV/target and OAR structure groups independently.
@@ -81,8 +82,12 @@ Recommended contents:
 - one RTDOSE aligned to the plan/CT geometry
 - optional one or more RTPLAN files
 
-When multiple RTPLAN files are found, the app loads the case once and exposes a
-plan switcher in the toolbar.
+When multiple RTPLAN files are found, the app asks which variant to load first.
+Other variants remain available through `Plan waehlen` in the toolbar.
+
+For RTDOSE, a complete `DoseSummationType=PLAN` dose is preferred. If no plan
+dose is available, compatible beam/field dose files on the same grid are summed
+on the fly.
 
 ## RefDB / Hub Configuration
 

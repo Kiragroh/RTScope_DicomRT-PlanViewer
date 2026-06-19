@@ -7,6 +7,7 @@ import numpy as np
 from PySide6.QtCore import QPoint, QRect, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QActionGroup, QColor, QLinearGradient, QPainter, QPen, QPolygon
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QCheckBox,
     QComboBox,
@@ -16,6 +17,8 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QProgressBar,
@@ -343,6 +346,7 @@ class MainWindow(QMainWindow):
             self.ct3d_mode_combo.setCurrentIndex(saved_ct_index)
             self.three_d_viewer.set_3d_ct_render_mode(saved_ct_mode)
         self.collapse_3d_action: QAction | None = None
+        self.select_plan_action: QAction | None = None
 
         self._build_toolbar()
         self._build_layout()
@@ -370,8 +374,17 @@ class MainWindow(QMainWindow):
 
         self.plan_variants = plans
         self._populate_plan_combo(plans)
+        selected_index = 0
+        if len(plans) > 1:
+            self._set_busy(False, f"{len(plans)} plan variants found.")
+            selected = self._select_plan_variant_index(plans, current_index=0, initial=True)
+            if selected is None:
+                self._set_status("Plan selection cancelled. Use Plan waehlen to load a variant.")
+                return
+            selected_index = selected
+            self._set_busy(True, "Loading selected plan...")
         try:
-            self._load_plan_variant(0, folder, run_lookup=True, run_preload=True)
+            self._load_plan_variant(selected_index, folder, run_lookup=True, run_preload=True)
         finally:
             self._set_busy(False)
 
@@ -386,6 +399,7 @@ class MainWindow(QMainWindow):
             return
         plan = self.plan_variants[index]
         self.plan = plan
+        self._set_plan_combo_index(index)
         self.roi_lookups = {}
         self.viewer.set_plan(plan)
         self.three_d_viewer.set_plan(plan)
@@ -425,6 +439,16 @@ class MainWindow(QMainWindow):
                 self.plan_combo.addItem(_plan_label(plan, index), index)
             self.plan_combo.setVisible(len(plans) > 1)
             self.plan_combo.setCurrentIndex(0)
+            if self.select_plan_action is not None:
+                self.select_plan_action.setEnabled(len(plans) > 1)
+        finally:
+            self._loading_plan_combo = False
+
+    def _set_plan_combo_index(self, index: int) -> None:
+        self._loading_plan_combo = True
+        try:
+            if 0 <= index < self.plan_combo.count():
+                self.plan_combo.setCurrentIndex(index)
         finally:
             self._loading_plan_combo = False
 
@@ -482,6 +506,11 @@ class MainWindow(QMainWindow):
         toolbar.addSeparator()
         toolbar.addWidget(QLabel("Plan"))
         toolbar.addWidget(self.plan_combo)
+        self.select_plan_action = QAction("Plan waehlen", self)
+        self.select_plan_action.setEnabled(False)
+        self.select_plan_action.setToolTip("Auswahlfenster fuer weitere RTPLAN-Varianten oeffnen")
+        self.select_plan_action.triggered.connect(self._open_plan_selection_dialog)
+        toolbar.addAction(self.select_plan_action)
 
         toolbar.addSeparator()
         toolbar.addWidget(QLabel("View"))
@@ -731,11 +760,53 @@ class MainWindow(QMainWindow):
             return
         if index < 0:
             return
+        if index < len(self.plan_variants) and self.plan is self.plan_variants[index]:
+            return
         self._set_busy(True, "Loading selected plan...")
         try:
             self._load_plan_variant(index, None, run_lookup=True, run_preload=True)
         finally:
             self._set_busy(False)
+
+    def _open_plan_selection_dialog(self) -> None:
+        if not self.plan_variants:
+            self._set_status("No plan variants loaded.")
+            return
+        current_index = self.plan_combo.currentIndex()
+        if current_index < 0:
+            current_index = 0
+        selected = self._select_plan_variant_index(
+            self.plan_variants,
+            current_index=current_index,
+            initial=False,
+        )
+        if selected is None:
+            return
+        if selected == current_index and self.plan is self.plan_variants[selected]:
+            return
+        self._set_busy(True, "Loading selected plan...")
+        try:
+            self._load_plan_variant(selected, None, run_lookup=True, run_preload=True)
+        finally:
+            self._set_busy(False)
+
+    def _select_plan_variant_index(
+        self,
+        plans: list[PlanDataset],
+        current_index: int = 0,
+        initial: bool = False,
+    ) -> int | None:
+        if len(plans) <= 1:
+            return 0 if plans else None
+        dialog = PlanSelectionDialog(
+            plans=plans,
+            current_index=current_index,
+            initial=initial,
+            parent=self,
+        )
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return dialog.selected_index()
 
     def open_settings_dialog(self) -> None:
         dialog = SettingsDialog(
@@ -767,7 +838,8 @@ class MainWindow(QMainWindow):
             "RTDOSE laden auch ohne Plan. CT-Slices sollten zu einer SeriesInstanceUID "
             "gehoeren und gleiche Orientierung/PixelSpacing haben. RTSTRUCT und RTDOSE "
             "sollten zur gleichen FrameOfReference/Plan-Referenz gehoeren; wenn mehrere "
-            "RTPLAN-Dateien vorhanden sind, erscheinen sie oben im Plan-Umschalter."
+            "RTPLAN-Dateien vorhanden sind, fragt RTScope beim Laden nach der Planvariante. "
+            "Weitere Varianten koennen danach ueber Plan waehlen geoeffnet werden."
         )
 
     def compute_qa(self) -> None:
@@ -1270,6 +1342,60 @@ def _remove_widget_from_parent_layout(widget: QWidget) -> None:
         parent.layout().removeWidget(widget)
 
 
+class PlanSelectionDialog(QDialog):
+    def __init__(
+        self,
+        plans: list[PlanDataset],
+        current_index: int,
+        initial: bool,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Plan waehlen")
+        self.plan_list = QListWidget()
+        self.plan_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.plan_list.setMinimumSize(520, 260)
+        for index, plan in enumerate(plans):
+            item = QListWidgetItem(_plan_selection_text(plan, index))
+            item.setData(Qt.ItemDataRole.UserRole, index)
+            self.plan_list.addItem(item)
+        if plans:
+            self.plan_list.setCurrentRow(max(0, min(current_index, len(plans) - 1)))
+        self.plan_list.itemDoubleClicked.connect(lambda _item: self.accept())
+
+        intro_text = (
+            "Mehrere RTPLAN-Dateien gefunden. Waehle die Planvariante, die jetzt "
+            "geladen werden soll."
+            if initial
+            else "Waehle eine geladene Planvariante."
+        )
+        intro = QLabel(intro_text)
+        intro.setWordWrap(True)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        if ok_button is not None:
+            ok_button.setText("Laden")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(intro)
+        layout.addWidget(self.plan_list, 1)
+        layout.addWidget(buttons)
+
+    def selected_index(self) -> int | None:
+        item = self.plan_list.currentItem()
+        if item is None:
+            return None
+        data = item.data(Qt.ItemDataRole.UserRole)
+        try:
+            return int(data)
+        except (TypeError, ValueError):
+            return None
+
+
 class SettingsDialog(QDialog):
     def __init__(
         self,
@@ -1317,6 +1443,19 @@ def _plan_label(plan: PlanDataset, index: int) -> str:
     if not label:
         label = f"Plan {index + 1}" if plan.beams else "Image / structure set"
     return label
+
+
+def _plan_selection_text(plan: PlanDataset, index: int) -> str:
+    beam_count = len(plan.beams)
+    roi_count = len(plan.rois)
+    dose_text = "Dose vorhanden" if plan.dose is not None else "keine Dose"
+    fraction_count = _safe_int(plan.plan_info.get("number_of_fractions"))
+    fraction_text = f", {fraction_count} Fx" if fraction_count else ""
+    warning_text = f", {len(plan.warnings)} Warnungen" if plan.warnings else ""
+    return (
+        f"{index + 1}. {_plan_label(plan, index)}\n"
+        f"{beam_count} Beams, {roi_count} ROIs, {dose_text}{fraction_text}{warning_text}"
+    )
 
 
 def _settings_bool(settings: QSettings, key: str, default: bool) -> bool:

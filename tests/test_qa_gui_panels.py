@@ -550,6 +550,11 @@ def test_main_window_switches_between_multiple_plans(monkeypatch, tmp_path):
     monkeypatch.setattr("planeval_viewer.gui.main_window.load_plan_variants", lambda _folder: [first, second])
     monkeypatch.setattr(window, "lookup_refdb", lambda: None)
     monkeypatch.setattr(window, "_pre_render_loaded_case", lambda: None)
+    monkeypatch.setattr(
+        window,
+        "_select_plan_variant_index",
+        lambda _plans, current_index=0, initial=False: 0,
+    )
 
     window.load_folder(tmp_path)
 
@@ -562,6 +567,71 @@ def test_main_window_switches_between_multiple_plans(monkeypatch, tmp_path):
     assert window.plan is second
     assert window.qa_panel.plan is second
     assert window.roi_panel.plan is second
+
+    window.close()
+    app.processEvents()
+
+
+def test_main_window_prompts_for_initial_plan_when_multiple(monkeypatch, tmp_path):
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    first = _qa_plan()
+    first.plan_info["plan_label"] = "Plan A"
+    second = _qa_plan_two_rois()
+    second.plan_info["plan_label"] = "Plan B"
+    selector_calls = []
+
+    monkeypatch.setattr("planeval_viewer.gui.main_window.load_plan_variants", lambda _folder: [first, second])
+    monkeypatch.setattr(window, "lookup_refdb", lambda: None)
+    monkeypatch.setattr(window, "_pre_render_loaded_case", lambda: None)
+
+    def choose_second(plans, current_index=0, initial=False):
+        selector_calls.append((len(plans), current_index, initial))
+        return 1
+
+    monkeypatch.setattr(window, "_select_plan_variant_index", choose_second)
+
+    window.load_folder(tmp_path)
+
+    assert selector_calls == [(2, 0, True)]
+    assert window.plan is second
+    assert window.plan_combo.currentIndex() == 1
+    assert window.qa_panel.plan is second
+    assert window.roi_panel.plan is second
+
+    window.close()
+    app.processEvents()
+
+
+def test_main_window_plan_selection_dialog_can_switch_later(monkeypatch, tmp_path):
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow()
+    first = _qa_plan()
+    first.plan_info["plan_label"] = "Plan A"
+    second = _qa_plan_two_rois()
+    second.plan_info["plan_label"] = "Plan B"
+    selections = iter([0, 1])
+
+    monkeypatch.setattr("planeval_viewer.gui.main_window.load_plan_variants", lambda _folder: [first, second])
+    monkeypatch.setattr(window, "lookup_refdb", lambda: None)
+    monkeypatch.setattr(window, "_pre_render_loaded_case", lambda: None)
+    monkeypatch.setattr(
+        window,
+        "_select_plan_variant_index",
+        lambda _plans, current_index=0, initial=False: next(selections),
+    )
+
+    window.load_folder(tmp_path)
+    assert window.plan is first
+    assert window.select_plan_action is not None
+    assert window.select_plan_action.isEnabled()
+
+    window._open_plan_selection_dialog()
+
+    assert window.plan is second
+    assert window.plan_combo.currentIndex() == 1
 
     window.close()
     app.processEvents()

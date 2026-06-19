@@ -134,6 +134,56 @@ def test_load_plan_variants_allows_image_structure_dose_without_rtplan(monkeypat
     }
 
 
+class _FakeDoseDataset:
+    def __init__(self, values, summation_type="BEAM"):
+        self.DoseSummationType = summation_type
+        self.DoseGridScaling = 1.0
+        self.PixelSpacing = [2.0, 2.0]
+        self.ImagePositionPatient = [0.0, 0.0, 10.0]
+        self.GridFrameOffsetVector = [0.0, 2.5]
+        self.ImageOrientationPatient = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+        self.pixel_array = np.asarray(values, dtype=np.float32)
+
+
+def test_load_dose_sums_compatible_beam_doses(monkeypatch, tmp_path):
+    first_path = tmp_path / "field_a.dcm"
+    second_path = tmp_path / "field_b.dcm"
+    datasets = {
+        str(first_path): _FakeDoseDataset(np.ones((2, 2, 2), dtype=np.float32)),
+        str(second_path): _FakeDoseDataset(np.full((2, 2, 2), 2.0, dtype=np.float32)),
+    }
+    warnings = []
+
+    monkeypatch.setattr(loader_module.pydicom, "dcmread", lambda path, force=True: datasets[path])
+
+    dose = loader_module._load_dose([first_path, second_path], warnings)
+
+    assert dose is not None
+    assert np.allclose(dose.values_gy, 3.0)
+    assert "Summed 2 RTDOSE BEAM files on identical dose grid." in warnings
+
+
+def test_load_dose_prefers_plan_dose_over_beam_doses(monkeypatch, tmp_path):
+    plan_path = tmp_path / "plan_dose.dcm"
+    beam_path = tmp_path / "field_a.dcm"
+    datasets = {
+        str(plan_path): _FakeDoseDataset(
+            np.full((2, 2, 2), 5.0, dtype=np.float32),
+            summation_type="PLAN",
+        ),
+        str(beam_path): _FakeDoseDataset(np.full((2, 2, 2), 2.0, dtype=np.float32)),
+    }
+    warnings = []
+
+    monkeypatch.setattr(loader_module.pydicom, "dcmread", lambda path, force=True: datasets[path])
+
+    dose = loader_module._load_dose([plan_path, beam_path], warnings)
+
+    assert dose is not None
+    assert np.allclose(dose.values_gy, 5.0)
+    assert "Using RTDOSE PLAN; additional beam dose files were not summed." in warnings
+
+
 def test_load_plan_folder_returns_first_plan_variant(monkeypatch, tmp_path):
     first = PlanDataset(ct=None, rois=[], dose=None, plan_info={"plan_label": "First"})
     second = PlanDataset(ct=None, rois=[], dose=None, plan_info={"plan_label": "Second"})

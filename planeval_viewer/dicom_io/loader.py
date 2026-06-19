@@ -219,14 +219,42 @@ def _load_dose(paths: list[Path], warnings: list[str]) -> DoseVolume | None:
     if not paths:
         return None
 
-    try:
-        ds = pydicom.dcmread(str(paths[0]), force=True)
-        values = ds.pixel_array.astype(np.float32) * float(getattr(ds, "DoseGridScaling", 1.0))
-        if values.ndim == 2:
-            values = values[np.newaxis, :, :]
-    except Exception as exc:
-        warnings.append(f"RTDOSE could not be read: {exc}")
+    dose_items: list[tuple[str, DoseVolume]] = []
+    for path in paths:
+        try:
+            ds = pydicom.dcmread(str(path), force=True)
+            dose_items.append((_dose_summation_type(ds), _dose_volume_from_dataset(ds)))
+        except Exception as exc:
+            warnings.append(f"RTDOSE could not be read: {exc}")
+
+    if not dose_items:
         return None
+
+    complete_doses = [
+        volume for summation_type, volume in dose_items if summation_type in {"PLAN", "MULTI_PLAN"}
+    ]
+    if complete_doses:
+        if len(complete_doses) > 1:
+            warnings.append("Multiple RTDOSE PLAN files found; using the first plan dose.")
+        if len(dose_items) > len(complete_doses):
+            warnings.append("Using RTDOSE PLAN; additional beam dose files were not summed.")
+        return complete_doses[0]
+
+    beam_doses = [
+        volume for summation_type, volume in dose_items if summation_type in {"BEAM", "CONTROL_POINT"}
+    ]
+    volumes_to_sum = beam_doses or [volume for _summation_type, volume in dose_items]
+    if len(volumes_to_sum) == 1:
+        return volumes_to_sum[0]
+
+    label = "BEAM" if beam_doses else "compatible"
+    return _sum_dose_volumes(volumes_to_sum, label, warnings)
+
+
+def _dose_volume_from_dataset(ds: Dataset) -> DoseVolume:
+    values = ds.pixel_array.astype(np.float32) * float(getattr(ds, "DoseGridScaling", 1.0))
+    if values.ndim == 2:
+        values = values[np.newaxis, :, :]
 
     position = getattr(ds, "ImagePositionPatient", (0.0, 0.0, 0.0))
     offsets = list(getattr(ds, "GridFrameOffsetVector", []))
@@ -250,6 +278,50 @@ def _load_dose(paths: list[Path], warnings: list[str]) -> DoseVolume | None:
         pixel_spacing=pixel_spacing,
         origin_xy=origin_xy,
         orientation=orientation,
+    )
+
+
+def _dose_summation_type(ds: Dataset) -> str:
+    return str(getattr(ds, "DoseSummationType", "") or "").strip().upper()
+
+
+def _sum_dose_volumes(
+    volumes: list[DoseVolume],
+    label: str,
+    warnings: list[str],
+) -> DoseVolume:
+    base = volumes[0]
+    summed_values = np.array(base.values_gy, dtype=np.float32, copy=True)
+    summed_count = 1
+    skipped_count = 0
+    for volume in volumes[1:]:
+        if not _dose_grids_compatible(base, volume):
+            skipped_count += 1
+            continue
+        summed_values += volume.values_gy.astype(np.float32, copy=False)
+        summed_count += 1
+
+    if skipped_count:
+        warnings.append(f"Skipped {skipped_count} RTDOSE file(s) with incompatible dose grid.")
+    if summed_count > 1:
+        warnings.append(f"Summed {summed_count} RTDOSE {label} files on identical dose grid.")
+    return DoseVolume(
+        values_gy=summed_values,
+        z_positions=list(base.z_positions),
+        pixel_spacing=base.pixel_spacing,
+        origin_xy=base.origin_xy,
+        orientation=base.orientation,
+    )
+
+
+def _dose_grids_compatible(first: DoseVolume, second: DoseVolume) -> bool:
+    return bool(
+        first.values_gy.shape == second.values_gy.shape
+        and np.allclose(first.pixel_spacing, second.pixel_spacing, rtol=0, atol=1e-4)
+        and np.allclose(first.origin_xy, second.origin_xy, rtol=0, atol=1e-3)
+        and np.allclose(first.orientation, second.orientation, rtol=0, atol=1e-4)
+        and len(first.z_positions) == len(second.z_positions)
+        and np.allclose(first.z_positions, second.z_positions, rtol=0, atol=1e-3)
     )
 
 

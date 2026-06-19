@@ -22,6 +22,9 @@ Recommended contents:
 - one RTDOSE aligned to the plan or CT geometry
 - optional one or more RTPLAN files
 
+If a complete `DoseSummationType=PLAN` RTDOSE is present, RTScope uses it. If
+only compatible beam or field doses are present, they are summed on the fly.
+
 Do not use folders that contain unrelated patients or mixed CT series. Do not
 commit or upload DICOM files, screenshots with identifiable anatomy, DICOM UIDs,
 names, MRNs or accession numbers.
@@ -31,9 +34,11 @@ names, MRNs or accession numbers.
 Click `Open` and select the case folder. The app scans subfolders, loads the CT,
 RTSTRUCT, RTDOSE and any RTPLAN files, then pre-renders the main views.
 
-If the folder contains multiple RTPLAN files, the `Plan` selector appears in the
-top toolbar. Use it to switch between plans without reloading the whole case.
-This is intended for plan variants that share the same image/structure context.
+If the folder contains multiple RTPLAN files, RTScope first asks which plan
+variant should be loaded. Later, use `Plan waehlen` in the top toolbar to open
+the same selection window again without reloading the whole case. The compact
+`Plan` selector can also switch quickly between loaded variants. This is
+intended for plan variants that share the same image/structure context.
 
 The app also opens CT/RTSTRUCT/RTDOSE cases without an RTPLAN. Plan-specific
 features such as MLC/BEV playback are only available when an RTPLAN is present.
