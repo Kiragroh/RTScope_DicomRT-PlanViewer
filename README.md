@@ -4,12 +4,7 @@ Fast desktop viewer and research QA workbench for radiotherapy DICOM plans.
 
 ![RTScope PlanEval Viewer anonymized workflow](docs/anonGif.gif)
 
-## Screenshots
-
-The anonymized UI overview shows the standalone viewer with 3D CT/structure
-review, DVH analysis, dose display and constraint checking:
-
-![RTScope viewer overview](docs/Screenshot_1.png)
+## Screenshot
 
 The MLC/BEV view provides beam, control-point and gantry review:
 
