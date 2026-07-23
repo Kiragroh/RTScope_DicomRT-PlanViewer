@@ -4,6 +4,17 @@ Fast desktop viewer and research QA workbench for radiotherapy DICOM plans.
 
 ![RTScope PlanEval Viewer anonymized workflow](docs/anonGif.gif)
 
+## Screenshots
+
+The anonymized UI overview shows the standalone viewer with 3D CT/structure
+review, DVH analysis, dose display and constraint checking:
+
+![RTScope viewer overview](docs/Screenshot_1.png)
+
+The MLC/BEV view provides beam, control-point and gantry review:
+
+![RTScope MLC and BEV view](docs/Screenshot_2.png)
+
 PlanEval RT Viewer loads local RT DICOM folders and combines plan inspection,
 DVH review, constraint checking, target metrics and MLC/BEV inspection in one
 PySide6 application. The current code is research software and is not clinically
@@ -70,6 +81,12 @@ python -m compileall -q planeval_viewer app.py
 ```
 
 For a guided first run, see [Getting Started](docs/getting_started.md).
+
+## STR-Hub Entry
+
+RTScope is registered in the STR-Hub as a standalone in-house tool. The Hub
+entry points to this source repository only:
+[RTScope_DicomRT-PlanViewer](https://github.com/Kiragroh/RTScope_DicomRT-PlanViewer).
 
 ## DICOM Folder Layout
 

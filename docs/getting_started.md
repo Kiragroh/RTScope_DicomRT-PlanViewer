@@ -94,3 +94,8 @@ example tables. These examples are for demos and tests only.
 
 Use the `CT Blur` toolbar toggle before taking screenshots. It blurs the CT
 texture while keeping dose, isodoses and contours visible.
+
+Reference screenshots from the anonymized UI are included in the repository:
+
+- [Viewer overview](Screenshot_1.png)
+- [MLC and BEV view](Screenshot_2.png)
