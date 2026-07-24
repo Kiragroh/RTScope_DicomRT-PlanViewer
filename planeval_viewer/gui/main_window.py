@@ -401,7 +401,9 @@ class MainWindow(QMainWindow):
         self.plan = plan
         self._set_plan_combo_index(index)
         self.roi_lookups = {}
-        self.viewer.set_plan(plan)
+        # The 2D viewer does not need its own OpenGL context. Keeping one
+        # context for the embedded 3D viewer avoids a visible white flash.
+        self.viewer.set_plan(plan, prepare_3d=False)
         self.three_d_viewer.set_plan(plan)
         self._three_d_structure_visibility_changed()
         if plan.ct is not None:
@@ -1186,6 +1188,7 @@ class MainWindow(QMainWindow):
                 self._position_loading_overlay()
                 self.loading_overlay.show()
                 self.loading_overlay.raise_()
+                self.loading_overlay.repaint()
             else:
                 self.loading_overlay.hide()
         QApplication.processEvents()

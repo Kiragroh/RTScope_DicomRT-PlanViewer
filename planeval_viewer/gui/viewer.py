@@ -23,7 +23,7 @@ pg.setConfigOptions(imageAxisOrder="row-major", antialias=True)
 CT_VOLUME_ALPHA_MAX = 12
 CT_SURFACE_ALPHA = 0.10
 CT_BONE_ALPHA = 0.62
-CONTEXT_ROI_ALPHA = 0.88
+CONTEXT_ROI_ALPHA = 0.32
 TARGET_ROI_ALPHA = 0.86
 ISODOSE_PERCENT_COLORS: tuple[tuple[float, tuple[float, float, float, float]], ...] = (
     (110.0, (0.94, 0.18, 0.95, 0.94)),
@@ -108,7 +108,7 @@ class AxialPlanViewer(QWidget):
         layout.addLayout(self.view_stack, 1)
         self._show_empty("No plan loaded")
 
-    def set_plan(self, plan: PlanDataset | None) -> None:
+    def set_plan(self, plan: PlanDataset | None, prepare_3d: bool = True) -> None:
         self.plan = plan
         self.view_mode = "axial"
         if plan and plan.ct is not None:
@@ -132,7 +132,7 @@ class AxialPlanViewer(QWidget):
         self._auto_range_pending = True
         self._reset_3d_camera_pending = True
         self.draw_slice()
-        if plan and plan.ct is not None:
+        if plan and plan.ct is not None and prepare_3d:
             self._ensure_3d_view()
             self._show_2d_view()
         self.slice_changed.emit(self.slice_index)
@@ -778,20 +778,20 @@ class AxialPlanViewer(QWidget):
                 center,
                 (0.0, 0.16, 1.0, CONTEXT_ROI_ALPHA),
                 draw_edges=True,
-                edge_color=(0.0, 0.32, 1.0, 1.0),
+                edge_color=(0.0, 0.32, 1.0, 0.62),
             )
             if not added:
                 self._add_roi_contour_lines_3d(
                     roi,
                     center,
-                    color=(0.0, 0.32, 1.0, 0.95),
+                    color=(0.0, 0.32, 1.0, 0.58),
                     width=2.0,
                 )
             else:
                 self._add_roi_contour_lines_3d(
                     roi,
                     center,
-                    color=(0.08, 0.38, 1.0, 0.98),
+                    color=(0.08, 0.38, 1.0, 0.65),
                     width=1.7,
                 )
         for roi in [item for item in rois if item.name == target_name]:

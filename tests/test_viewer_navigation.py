@@ -350,6 +350,8 @@ def test_3d_mode_uses_interactive_opengl_view_with_structure_contours():
 def test_3d_ct_volume_and_surface_are_translucent():
     assert CT_VOLUME_ALPHA_MAX <= 12
     assert 0.0 < viewer_module.CT_SURFACE_ALPHA < viewer_module.CT_BONE_ALPHA < 1.0
+    assert 0.0 < viewer_module.CONTEXT_ROI_ALPHA <= 0.45
+    assert viewer_module.CONTEXT_ROI_ALPHA < viewer_module.TARGET_ROI_ALPHA
 
 
 def test_3d_ct_volume_alpha_is_masked_to_body():
@@ -923,6 +925,30 @@ def test_3d_view_is_embedded_and_precreated_when_ct_plan_loads():
     assert not viewer.gl_view.isWindow()
     assert viewer.view_stack.currentWidget() is viewer.canvas
 
+    viewer.close()
+    app.processEvents()
+
+
+def test_2d_plan_can_skip_3d_context_preparation():
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    app = QApplication.instance() or QApplication([])
+    viewer = AxialPlanViewer()
+    plan = PlanDataset(
+        ct=CtVolume(
+            voxels=np.zeros((3, 3, 3), dtype=np.float32),
+            z_positions=[0.0, 1.0, 2.0],
+            pixel_spacing=(1.0, 1.0),
+            origin_xy=(0.0, 0.0),
+        ),
+        rois=[],
+        dose=None,
+        plan_info={},
+        warnings=[],
+    )
+
+    viewer.set_plan(plan, prepare_3d=False)
+
+    assert viewer.gl_view is None
     viewer.close()
     app.processEvents()
 

@@ -70,19 +70,27 @@ def load_plan_variants(folder: str | Path) -> list[PlanDataset]:
     for plan_path in sorted(plan_paths, key=lambda item: item.name.lower()):
         plan_dataset = datasets_by_path.get(plan_path)
         plan_uid = str(getattr(plan_dataset, "SOPInstanceUID", "") or "")
+        warnings = list(common_warnings)
         dose_paths = _paths_associated_with_plan(
             by_modality.get("RTDOSE", []),
             datasets_by_path,
             plan_uid,
             plan_path,
+            plan_dataset=plan_dataset,
+            plan_count=len(plan_paths),
+            relation="RTDOSE",
+            warnings=warnings,
         )
         rtstruct_paths = _paths_associated_with_plan(
             by_modality.get("RTSTRUCT", []),
             datasets_by_path,
             plan_uid,
             plan_path,
+            plan_dataset=plan_dataset,
+            plan_count=len(plan_paths),
+            relation="RTSTRUCT",
+            warnings=warnings,
         )
-        warnings = list(common_warnings)
         selected_ct_paths = _select_ct_paths(
             ct_paths,
             datasets_by_path,
@@ -144,19 +152,54 @@ def _paths_associated_with_plan(
     datasets_by_path: dict[Path, Dataset],
     sop_uid: str,
     plan_path: Path,
+    *,
+    plan_dataset: Dataset | None = None,
+    plan_count: int = 1,
+    relation: str = "DICOM object",
+    warnings: list[str] | None = None,
 ) -> list[Path]:
     if not paths:
         return []
+
+    ordered_paths = sorted(set(paths), key=lambda item: str(item).lower())
     if sop_uid:
         matched = [
             path
-            for path in paths
+            for path in ordered_paths
             if sop_uid in _referenced_sop_uids(datasets_by_path.get(path))
         ]
         if matched:
-            return matched
+            return sorted(matched, key=lambda item: str(item).lower())
+
+    # RTDOSE commonly references RTPLAN, while RTPLAN references RTSTRUCT.
+    # Check the reverse direction as well so multiple plans cannot share every
+    # structure set merely because the files happen to be in one folder.
+    plan_references = _referenced_sop_uids(plan_dataset)
+    if plan_references:
+        matched = [
+            path
+            for path in ordered_paths
+            if _dataset_uid(datasets_by_path.get(path), "SOPInstanceUID") in plan_references
+        ]
+        if matched:
+            return sorted(matched, key=lambda item: str(item).lower())
+
     nearby = _paths_near_anchor(paths, plan_path)
-    return nearby or paths
+    if len(nearby) == 1:
+        return nearby
+    if len(ordered_paths) == 1:
+        return ordered_paths
+    if plan_count <= 1:
+        # A single plan may legitimately have several RTDOSE BEAM files that
+        # must be summed by _load_dose.
+        return nearby or ordered_paths
+
+    if warnings is not None:
+        warnings.append(
+            f"Ambiguous {relation} association for {plan_path.name}; "
+            "no file was assigned without an explicit DICOM reference."
+        )
+    return []
 
 
 def _paths_near_anchor(paths: list[Path], anchor_path: Path) -> list[Path]:

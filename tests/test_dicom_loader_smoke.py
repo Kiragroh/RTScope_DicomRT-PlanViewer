@@ -32,6 +32,21 @@ def _rtstruct_header_referencing_ct(ct_sop_uid: str) -> Dataset:
     return dataset
 
 
+def _rtstruct_header_with_sop(sop_uid: str) -> Dataset:
+    dataset = Dataset()
+    dataset.Modality = "RTSTRUCT"
+    dataset.SOPInstanceUID = sop_uid
+    return dataset
+
+
+def _plan_header_referencing_structure(sop_uid: str, struct_sop_uid: str) -> Dataset:
+    dataset = _plan_header(sop_uid)
+    reference = Dataset()
+    reference.ReferencedSOPInstanceUID = struct_sop_uid
+    dataset.ReferencedStructureSetSequence = Sequence([reference])
+    return dataset
+
+
 def test_plan_dataset_exposes_roi_names():
     plan = PlanDataset(
         ct=CtVolume(
@@ -106,6 +121,85 @@ def test_load_plan_variants_creates_one_dataset_per_rtplan(monkeypatch, tmp_path
         str(paths["plan_a"]),
         str(paths["plan_b"]),
     ]
+
+
+def test_load_plan_variants_uses_rtplan_referenced_structure_set(monkeypatch, tmp_path):
+    paths = {
+        "struct_a": tmp_path / "structures" / "struct_a.dcm",
+        "struct_b": tmp_path / "structures" / "struct_b.dcm",
+        "plan_a": tmp_path / "plans" / "plan_a.dcm",
+        "plan_b": tmp_path / "plans" / "plan_b.dcm",
+    }
+    datasets = {
+        paths["struct_a"]: _rtstruct_header_with_sop("1.2.826.0.1.3680043.10.54321.31"),
+        paths["struct_b"]: _rtstruct_header_with_sop("1.2.826.0.1.3680043.10.54321.32"),
+        paths["plan_a"]: _plan_header_referencing_structure(
+            "1.2.826.0.1.3680043.10.54321.41",
+            "1.2.826.0.1.3680043.10.54321.31",
+        ),
+        paths["plan_b"]: _plan_header_referencing_structure(
+            "1.2.826.0.1.3680043.10.54321.42",
+            "1.2.826.0.1.3680043.10.54321.32",
+        ),
+    }
+    loaded_structures = []
+
+    monkeypatch.setattr(loader_module, "_read_dicom_headers", lambda _folder: list(datasets.items()))
+    monkeypatch.setattr(loader_module, "_load_ct", lambda _paths, _warnings: None)
+    monkeypatch.setattr(loader_module, "_load_dose", lambda _paths, _warnings: None)
+
+    def record_struct(paths_, _warnings):
+        loaded_structures.append(list(paths_))
+        return []
+
+    monkeypatch.setattr(loader_module, "_load_rtstruct", record_struct)
+    monkeypatch.setattr(
+        loader_module,
+        "_load_plan_info",
+        lambda plan_paths, _warnings: {"plan_label": plan_paths[0].stem},
+    )
+    monkeypatch.setattr(loader_module, "_load_beams", lambda _paths, _warnings: [])
+
+    plans = load_plan_variants(tmp_path)
+
+    assert [plan.plan_info["plan_label"] for plan in plans] == ["plan_a", "plan_b"]
+    assert loaded_structures == [[paths["struct_a"]], [paths["struct_b"]]]
+
+
+def test_load_plan_variants_does_not_share_ambiguous_structures(monkeypatch, tmp_path):
+    paths = {
+        "struct_a": tmp_path / "structures" / "struct_a.dcm",
+        "struct_b": tmp_path / "structures" / "struct_b.dcm",
+        "plan_a": tmp_path / "plans" / "plan_a.dcm",
+        "plan_b": tmp_path / "plans" / "plan_b.dcm",
+    }
+    datasets = {
+        paths["struct_a"]: _rtstruct_header_with_sop("1.2.826.0.1.3680043.10.54321.51"),
+        paths["struct_b"]: _rtstruct_header_with_sop("1.2.826.0.1.3680043.10.54321.52"),
+        paths["plan_a"]: _plan_header("1.2.826.0.1.3680043.10.54321.61"),
+        paths["plan_b"]: _plan_header("1.2.826.0.1.3680043.10.54321.62"),
+    }
+    loaded_structures = []
+
+    monkeypatch.setattr(loader_module, "_read_dicom_headers", lambda _folder: list(datasets.items()))
+    monkeypatch.setattr(loader_module, "_load_ct", lambda _paths, _warnings: None)
+    monkeypatch.setattr(loader_module, "_load_dose", lambda _paths, _warnings: None)
+
+    def record_struct(paths_, _warnings):
+        loaded_structures.append(list(paths_))
+        return []
+
+    monkeypatch.setattr(loader_module, "_load_rtstruct", record_struct)
+    monkeypatch.setattr(loader_module, "_load_plan_info", lambda _paths, _warnings: {})
+    monkeypatch.setattr(loader_module, "_load_beams", lambda _paths, _warnings: [])
+
+    plans = load_plan_variants(tmp_path)
+
+    assert loaded_structures == [[], []]
+    assert all(
+        any("Ambiguous RTSTRUCT association" in warning for warning in plan.warnings)
+        for plan in plans
+    )
 
 
 def test_load_plan_variants_allows_image_structure_dose_without_rtplan(monkeypatch, tmp_path):
