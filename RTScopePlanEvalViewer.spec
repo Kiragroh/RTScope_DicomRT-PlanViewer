@@ -33,6 +33,17 @@ excludes = [
     "pyarrow",
     "pytest",
     "tkinter",
+    # Optional SciPy/PyInstaller integrations that are not used by the viewer.
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "tensorboard",
+    "onnxruntime",
+    "tensorflow",
+    "jax",
+    "jaxlib",
+    "cupy",
+    "dask",
 ]
 
 a = Analysis(
