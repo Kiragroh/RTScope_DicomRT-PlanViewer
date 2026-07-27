@@ -1,9 +1,19 @@
 {
   "version": "0.1.0",
-  "build": 7,
+  "build": 8,
   "lastUpdate": "2026-07-27",
-  "lastChange": "Mehrplan-Zuordnung, Ladeoverlay und schlanker Windows-Portable-Build",
+  "lastChange": "Gemeinsame Standalone-Ablage im STR-Archiv",
   "changelog": [
+    {
+      "build": 8,
+      "date": "2026-07-27",
+      "title": "Gemeinsame Standalone-Ablage im STR-Archiv",
+      "changes": [
+        "Eine gemeinsame, patientendatenfreie Standalone-Kopie liegt im STR-Archiv und ist fuer berechtigte UKL-Arbeitsplaetze erreichbar.",
+        "Der STR-Hub verwendet diese Ablage als primaeren Git-Pfad fuer die Versionsanzeige.",
+        "Die README beschreibt den gemeinsamen Pfad und den separaten GitHub-Sourcecode."
+      ]
+    },
     {
       "build": 7,
       "date": "2026-07-27",

@@ -77,10 +77,24 @@ python -m compileall -q planeval_viewer app.py
 
 For a guided first run, see [Getting Started](docs/getting_started.md).
 
+## UKL Standalone Ablage
+
+Die primaere, fuer alle berechtigten UKL-Arbeitsplaetze erreichbare Sourcecode-
+Ablage liegt im STR-Archiv:
+
+```text
+\\medizin.uni-leipzig.de\data\Archiv\STR\STR-Physik\11. Scripting\Standalone\RTScope_DicomRT-PlanViewer
+```
+
+Dieser Checkout enthaelt nur Sourcecode, Dokumentation und synthetische
+Beispieldaten. Patientendaten werden nicht dort abgelegt. Der Ordner ist ein
+Git-Checkout und wird fuer die Hub-Versionsanzeige verwendet.
+
 ## STR-Hub Entry
 
 RTScope is registered in the STR-Hub as a standalone in-house tool. The Hub
-entry points to this source repository only:
+uses the shared Standalone checkout above as its primary path for Git version
+detection and links to the public source repository for documentation:
 [RTScope_DicomRT-PlanViewer](https://github.com/Kiragroh/RTScope_DicomRT-PlanViewer).
 
 ## DICOM Folder Layout
