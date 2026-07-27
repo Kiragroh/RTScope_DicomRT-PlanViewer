@@ -7,6 +7,8 @@ project_root = Path.cwd()
 
 datas = [
     (str(project_root / "logo.png"), "."),
+    (str(project_root / "versionInfo.json"), "."),
+    (str(project_root / "CHANGELOG.md"), "."),
     (
         str(project_root / "planeval_viewer" / "refdb" / "offline_examples" / "stereotaxie_tables.json"),
         "planeval_viewer/refdb/offline_examples",

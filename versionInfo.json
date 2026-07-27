@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0",
+  "build": 7,
+  "lastUpdate": "2026-07-27",
+  "lastChange": "Mehrplan-Zuordnung, Ladeoverlay und schlanker Windows-Portable-Build",
+  "changelog": [
+    {
+      "build": 7,
+      "date": "2026-07-27",
+      "title": "Mehrplan-Zuordnung, Ladeoverlay und schlanker Windows-Portable-Build",
+      "changes": [
+        "RTPLAN- und RTSTRUCT-Referenzen werden bei mehreren Planvarianten sicher bidirektional zugeordnet.",
+        "Mehrdeutige DICOM-Dateien werden nicht mehr automatisch mehreren Planen zugewiesen.",
+        "Der Ladeoverlay und der gemeinsame OpenGL-Kontext reduzieren den sichtbaren Ladeblitz.",
+        "Der Windows-Portable-Build schliesst unbenutzte ML- und GPU-Abhaengigkeiten aus."
+      ]
+    }
+  ]
+}
