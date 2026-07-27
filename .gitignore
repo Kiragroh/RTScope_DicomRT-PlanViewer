@@ -10,3 +10,5 @@ Import/
 *.log
 *.zip
 github_reference/PyRTEva-Engine/
+RTScopePlanEvalViewer.exe
+_internal/
