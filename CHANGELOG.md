@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 - Build 9 (2026-07-27)
+
+- Direkt startbare Standalone-EXE im STR-Archiv
+- `RTScopePlanEvalViewer.exe` liegt direkt im gemeinsamen STR-Standalone-Ordner und kann dort ohne Python gestartet werden.
+- Das Portable-ZIP bleibt zusaetzlich im Unterordner `release` verfuegbar.
+- Die README beschreibt den direkten Start und der Hub verwendet weiterhin den gemeinsamen Ordner als Git-Pfad.
+
 ## 0.1.2 - Build 8 (2026-07-27)
 
 - Gemeinsame Standalone-Ablage im STR-Archiv

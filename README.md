@@ -86,9 +86,16 @@ Ablage liegt im STR-Archiv:
 \\medizin.uni-leipzig.de\data\Archiv\STR\STR-Physik\11. Scripting\Standalone\RTScope_DicomRT-PlanViewer
 ```
 
-Dieser Checkout enthaelt nur Sourcecode, Dokumentation und synthetische
-Beispieldaten. Patientendaten werden nicht dort abgelegt. Der Ordner ist ein
-Git-Checkout und wird fuer die Hub-Versionsanzeige verwendet.
+Der Ordner ist gleichzeitig der direkt startbare Standalone-Arbeitsplatz:
+
+```text
+RTScopePlanEvalViewer.exe
+```
+
+Die EXE liegt direkt im oben genannten Ordner; das Portable-ZIP liegt zusaetzlich
+unter `release\`. Der Checkout enthaelt ausserdem Sourcecode, Dokumentation und
+synthetische Beispieldaten. Patientendaten werden nicht dort abgelegt. Der
+Ordner ist ein Git-Checkout und wird fuer die Hub-Versionsanzeige verwendet.
 
 ## STR-Hub Entry
 
